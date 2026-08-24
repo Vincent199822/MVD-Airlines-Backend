@@ -1,9 +1,10 @@
 const Flight = require('../models/Flight');
+const Booking = require('../models/Booking');
 
 // Create Flight
 const createFlight = async (req, res) => {
     try {
-        const {
+        let {
             flightNumber,
             origin,
             destination,
@@ -12,6 +13,11 @@ const createFlight = async (req, res) => {
             price,
             availableSeats
         } = req.body;
+
+        // Normalize text values
+        flightNumber = flightNumber?.trim().toUpperCase();
+        origin = origin?.trim();
+        destination = destination?.trim();
 
         // Check required fields
         if (
@@ -28,8 +34,34 @@ const createFlight = async (req, res) => {
             });
         }
 
+        // Validate price
+        if (typeof price !== 'number' || price < 0) {
+            return res.status(400).json({
+                message: 'Price must be a number greater than or equal to 0.'
+            });
+        }
+
+        // Validate available seats
+        if (
+            !Number.isInteger(availableSeats) ||
+            availableSeats < 0
+        ) {
+            return res.status(400).json({
+                message: 'Available seats must be a whole number greater than or equal to 0.'
+            });
+        }
+
+        // Validate flight dates
+        if (new Date(arrivalDate) <= new Date(departureDate)) {
+            return res.status(400).json({
+                message: 'Arrival date must be after departure date.'
+            });
+        }
+
         // Check if flight number already exists
-        const existingFlight = await Flight.findOne({ flightNumber });
+        const existingFlight = await Flight.findOne({
+            flightNumber
+        });
 
         if (existingFlight) {
             return res.status(400).json({
@@ -62,10 +94,12 @@ const createFlight = async (req, res) => {
     }
 };
 
+
 // Get All Flights
 const getFlights = async (req, res) => {
     try {
-        const flights = await Flight.find();
+        const flights = await Flight.find()
+            .sort({ departureDate: 1 });
 
         res.status(200).json({
             flights
@@ -80,10 +114,18 @@ const getFlights = async (req, res) => {
     }
 };
 
+
 // Get Flight By ID
 const getFlightById = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if ID is valid
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                message: 'Invalid flight ID.'
+            });
+        }
 
         const flight = await Flight.findById(id);
 
@@ -106,12 +148,13 @@ const getFlightById = async (req, res) => {
     }
 };
 
+
 // Update Flight
 const updateFlight = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const {
+        let {
             flightNumber,
             origin,
             destination,
@@ -122,6 +165,13 @@ const updateFlight = async (req, res) => {
             status
         } = req.body;
 
+        // Check if ID is valid
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                message: 'Invalid flight ID.'
+            });
+        }
+
         // Check if flight exists
         const flight = await Flight.findById(id);
 
@@ -131,15 +181,96 @@ const updateFlight = async (req, res) => {
             });
         }
 
+        // Normalize text values if provided
+        if (flightNumber !== undefined) {
+            flightNumber = flightNumber.trim().toUpperCase();
+        }
+
+        if (origin !== undefined) {
+            origin = origin.trim();
+        }
+
+        if (destination !== undefined) {
+            destination = destination.trim();
+        }
+
+        // Check duplicate flight number
+        if (
+            flightNumber !== undefined &&
+            flightNumber !== flight.flightNumber
+        ) {
+            const existingFlight = await Flight.findOne({
+                flightNumber
+            });
+
+            if (existingFlight) {
+                return res.status(400).json({
+                    message: 'Flight number already exists.'
+                });
+            }
+        }
+
+        // Validate price
+        if (
+            price !== undefined &&
+            (typeof price !== 'number' || price < 0)
+        ) {
+            return res.status(400).json({
+                message: 'Price must be a number greater than or equal to 0.'
+            });
+        }
+
+        // Validate available seats
+        if (
+            availableSeats !== undefined &&
+            (!Number.isInteger(availableSeats) || availableSeats < 0)
+        ) {
+            return res.status(400).json({
+                message: 'Available seats must be a whole number greater than or equal to 0.'
+            });
+        }
+
+        // Determine final dates
+        const finalDepartureDate =
+            departureDate ?? flight.departureDate;
+
+        const finalArrivalDate =
+            arrivalDate ?? flight.arrivalDate;
+
+        // Validate flight dates
+        if (
+            new Date(finalArrivalDate) <=
+            new Date(finalDepartureDate)
+        ) {
+            return res.status(400).json({
+                message: 'Arrival date must be after departure date.'
+            });
+        }
+
         // Update fields
-        flight.flightNumber = flightNumber ?? flight.flightNumber;
-        flight.origin = origin ?? flight.origin;
-        flight.destination = destination ?? flight.destination;
-        flight.departureDate = departureDate ?? flight.departureDate;
-        flight.arrivalDate = arrivalDate ?? flight.arrivalDate;
-        flight.price = price ?? flight.price;
-        flight.availableSeats = availableSeats ?? flight.availableSeats;
-        flight.status = status ?? flight.status;
+        flight.flightNumber =
+            flightNumber ?? flight.flightNumber;
+
+        flight.origin =
+            origin ?? flight.origin;
+
+        flight.destination =
+            destination ?? flight.destination;
+
+        flight.departureDate =
+            departureDate ?? flight.departureDate;
+
+        flight.arrivalDate =
+            arrivalDate ?? flight.arrivalDate;
+
+        flight.price =
+            price ?? flight.price;
+
+        flight.availableSeats =
+            availableSeats ?? flight.availableSeats;
+
+        flight.status =
+            status ?? flight.status;
 
         // Save changes
         await flight.save();
@@ -158,10 +289,18 @@ const updateFlight = async (req, res) => {
     }
 };
 
+
 // Delete Flight
 const deleteFlight = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if ID is valid
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                message: 'Invalid flight ID.'
+            });
+        }
 
         // Check if flight exists
         const flight = await Flight.findById(id);
@@ -169,6 +308,17 @@ const deleteFlight = async (req, res) => {
         if (!flight) {
             return res.status(404).json({
                 message: 'Flight not found.'
+            });
+        }
+
+        // Check if flight has bookings
+        const existingBooking = await Booking.findOne({
+            flight: id
+        });
+
+        if (existingBooking) {
+            return res.status(400).json({
+                message: 'This flight cannot be deleted because it has existing bookings.'
             });
         }
 
@@ -189,7 +339,7 @@ const deleteFlight = async (req, res) => {
 };
 
 
-
+// Export Controllers
 module.exports = {
     createFlight,
     getFlights,

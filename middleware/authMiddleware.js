@@ -11,12 +11,19 @@ const authMiddleware = (req, res, next) => {
             });
         }
 
-        // Check Bearer token
+        // Check Bearer token format
+        if (!authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                message: 'Access denied. Invalid authorization format.'
+            });
+        }
+
+        // Get token
         const token = authHeader.split(' ')[1];
 
         if (!token) {
             return res.status(401).json({
-                message: 'Access denied. Invalid token.'
+                message: 'Access denied. No token provided.'
             });
         }
 
@@ -29,6 +36,7 @@ const authMiddleware = (req, res, next) => {
         // Store decoded user information in request
         req.user = decoded;
 
+        // Continue to the next middleware/controller
         next();
 
     } catch (error) {

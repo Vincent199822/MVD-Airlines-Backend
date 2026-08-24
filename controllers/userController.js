@@ -8,16 +8,17 @@ const registerUser = async (req, res) => {
         const {
             firstName,
             lastName,
-            email,
             password,
             confirmPassword
         } = req.body;
+
+        const normalizedEmail = req.body.email?.trim().toLowerCase();
 
         // Check required fields
         if (
             !firstName ||
             !lastName ||
-            !email ||
+            !normalizedEmail ||
             !password ||
             !confirmPassword
         ) {
@@ -34,7 +35,9 @@ const registerUser = async (req, res) => {
         }
 
         // Check if email already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({
+            email: normalizedEmail
+        });
 
         if (existingUser) {
             return res.status(400).json({
@@ -49,7 +52,7 @@ const registerUser = async (req, res) => {
         const user = await User.create({
             firstName,
             lastName,
-            email,
+            email: normalizedEmail,
             password: hashedPassword,
             role: 'user'
         });
@@ -74,20 +77,25 @@ const registerUser = async (req, res) => {
     }
 };
 
+
 // Login User
 const loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { password } = req.body;
+
+        const normalizedEmail = req.body.email?.trim().toLowerCase();
 
         // Check required fields
-        if (!email || !password) {
+        if (!normalizedEmail || !password) {
             return res.status(400).json({
                 message: 'Please provide email and password.'
             });
         }
 
         // Find user by email
-        const user = await User.findOne({ email });
+        const user = await User.findOne({
+            email: normalizedEmail
+        });
 
         if (!user) {
             return res.status(401).json({
@@ -140,59 +148,38 @@ const loginUser = async (req, res) => {
     }
 };
 
-// // Make User Admin
-// const makeAdmin = async (req, res) => {
-//     try {
-//         const { email } = req.body;
 
-//         // Check if email was provided
-//         if (!email) {
-//             return res.status(400).json({
-//                 message: 'Please provide an email.'
-//             });
-//         }
+// Get User Profile
+const getProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id)
+            .select('-password');
 
-//         // Find user
-//         const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                message: 'User not found.'
+            });
+        }
 
-//         if (!user) {
-//             return res.status(404).json({
-//                 message: 'User not found.'
-//             });
-//         }
+        res.status(200).json({
+            user
+        });
 
-//         // Change role to admin
-//         user.role = 'admin';
+    } catch (error) {
+        console.error('Get profile error:', error);
 
-//         await user.save();
-
-//         res.status(200).json({
-//             message: 'User is now an admin.',
-//             user: {
-//                 id: user._id,
-//                 firstName: user.firstName,
-//                 lastName: user.lastName,
-//                 email: user.email,
-//                 role: user.role
-//             }
-//         });
-
-//     } catch (error) {
-//         console.error('Make admin error:', error);
-
-//         res.status(500).json({
-//             message: 'Server error.'
-//         });
-//     }
-// };
+        res.status(500).json({
+            message: 'Server error.'
+        });
+    }
+};
 
 
-
-
-
-
+// Export Controllers
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
+    getProfile
+
     // makeAdmin
 };

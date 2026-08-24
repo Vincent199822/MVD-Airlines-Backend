@@ -9,6 +9,8 @@ const adminMiddleware = require('./middleware/adminMiddleware');
 
 const flightRoutes = require('./routes/flightRoutes');
 
+const bookingRoutes = require('./routes/bookingRoutes');
+
 const app = express();
 
 // Middleware
@@ -18,6 +20,7 @@ app.use(express.json());
 // Routes
 app.use('/users', userRoutes);
 app.use('/flights', flightRoutes);
+app.use('/bookings', bookingRoutes);
 
 
 
