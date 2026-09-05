@@ -7,6 +7,7 @@ const {
 } = require('../controllers/userController');
 
 const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 
 const router = express.Router();
 
@@ -34,6 +35,22 @@ router.get(
     '/profile',
     authMiddleware,
     getProfile
+);
+
+
+// Admin Test Route
+router.get(
+    '/admin-test',
+    authMiddleware,
+    adminMiddleware,
+    (req, res) => {
+
+        res.status(200).json({
+            message: 'Admin access granted.',
+            user: req.user
+        });
+
+    }
 );
 
 

@@ -6,10 +6,10 @@ require('dotenv').config();
 const userRoutes = require('./routes/userRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
 const adminMiddleware = require('./middleware/adminMiddleware');
-
 const flightRoutes = require('./routes/flightRoutes');
-
 const bookingRoutes = require('./routes/bookingRoutes');
+const mealRoutes = require("./routes/mealRoutes");
+const addOnRoutes = require("./routes/addOnRoutes");
 
 const app = express();
 
@@ -21,7 +21,8 @@ app.use(express.json());
 app.use('/users', userRoutes);
 app.use('/flights', flightRoutes);
 app.use('/bookings', bookingRoutes);
-
+app.use("/meals", mealRoutes);
+app.use("/addons", addOnRoutes);
 
 
 // Protected test route

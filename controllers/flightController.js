@@ -51,8 +51,20 @@ const createFlight = async (req, res) => {
             });
         }
 
-        // Validate flight dates
-        if (new Date(arrivalDate) <= new Date(departureDate)) {
+        // Validate dates
+        const departure = new Date(departureDate);
+        const arrival = new Date(arrivalDate);
+
+        if (
+            isNaN(departure.getTime()) ||
+            isNaN(arrival.getTime())
+        ) {
+            return res.status(400).json({
+                message: 'Please provide valid departure and arrival dates.'
+            });
+        }
+
+        if (arrival <= departure) {
             return res.status(400).json({
                 message: 'Arrival date must be after departure date.'
             });
@@ -69,16 +81,30 @@ const createFlight = async (req, res) => {
             });
         }
 
-        // Create flight
-        const flight = await Flight.create({
-            flightNumber,
-            origin,
-            destination,
-            departureDate,
-            arrivalDate,
-            price,
-            availableSeats
-        });
+// Generate seat numbers
+const seats = [];
+
+for (let row = 1; row <= Math.ceil(availableSeats / 6); row++) {
+    for (const letter of ['A', 'B', 'C', 'D', 'E', 'F']) {
+
+        if (seats.length < availableSeats) {
+            seats.push(`${row}${letter}`);
+        }
+
+    }
+}
+
+// Create flight
+const flight = await Flight.create({
+    flightNumber,
+    origin,
+    destination,
+    departureDate: departure,
+    arrivalDate: arrival,
+    price,
+    availableSeats,
+    seats
+});
 
         res.status(201).json({
             message: 'Flight created successfully.',
@@ -184,14 +210,32 @@ const updateFlight = async (req, res) => {
         // Normalize text values if provided
         if (flightNumber !== undefined) {
             flightNumber = flightNumber.trim().toUpperCase();
+
+            if (!flightNumber) {
+                return res.status(400).json({
+                    message: 'Flight number cannot be empty.'
+                });
+            }
         }
 
         if (origin !== undefined) {
             origin = origin.trim();
+
+            if (!origin) {
+                return res.status(400).json({
+                    message: 'Origin cannot be empty.'
+                });
+            }
         }
 
         if (destination !== undefined) {
             destination = destination.trim();
+
+            if (!destination) {
+                return res.status(400).json({
+                    message: 'Destination cannot be empty.'
+                });
+            }
         }
 
         // Check duplicate flight number
@@ -232,18 +276,46 @@ const updateFlight = async (req, res) => {
 
         // Determine final dates
         const finalDepartureDate =
-            departureDate ?? flight.departureDate;
+            departureDate !== undefined
+                ? new Date(departureDate)
+                : flight.departureDate;
 
         const finalArrivalDate =
-            arrivalDate ?? flight.arrivalDate;
+            arrivalDate !== undefined
+                ? new Date(arrivalDate)
+                : flight.arrivalDate;
 
-        // Validate flight dates
+        // Validate dates
         if (
-            new Date(finalArrivalDate) <=
-            new Date(finalDepartureDate)
+            isNaN(finalDepartureDate.getTime()) ||
+            isNaN(finalArrivalDate.getTime())
         ) {
             return res.status(400).json({
+                message: 'Please provide valid departure and arrival dates.'
+            });
+        }
+
+        if (finalArrivalDate <= finalDepartureDate) {
+            return res.status(400).json({
                 message: 'Arrival date must be after departure date.'
+            });
+        }
+
+        // Validate status
+        const validStatuses = [
+            'scheduled',
+            'boarding',
+            'departed',
+            'arrived',
+            'cancelled'
+        ];
+
+        if (
+            status !== undefined &&
+            !validStatuses.includes(status)
+        ) {
+            return res.status(400).json({
+                message: 'Invalid flight status.'
             });
         }
 
@@ -258,10 +330,10 @@ const updateFlight = async (req, res) => {
             destination ?? flight.destination;
 
         flight.departureDate =
-            departureDate ?? flight.departureDate;
+            finalDepartureDate;
 
         flight.arrivalDate =
-            arrivalDate ?? flight.arrivalDate;
+            finalArrivalDate;
 
         flight.price =
             price ?? flight.price;
@@ -338,6 +410,80 @@ const deleteFlight = async (req, res) => {
     }
 };
 
+// CANCEL FLIGHT - ADMIN
+const cancelFlight = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { cancellationReason } = req.body;
+
+        if (!cancellationReason || !cancellationReason.trim()) {
+            return res.status(400).json({
+                message: 'Cancellation reason is required.'
+            });
+        }
+
+        const flight = await Flight.findById(id);
+
+        if (!flight) {
+            return res.status(404).json({
+                message: 'Flight not found.'
+            });
+        }
+
+        if (flight.status === 'cancelled') {
+            return res.status(400).json({
+                message: 'Flight is already cancelled.'
+            });
+        }
+
+        if (
+            flight.status === 'departed' ||
+            flight.status === 'arrived'
+        ) {
+            return res.status(400).json({
+                message: 'This flight can no longer be cancelled.'
+            });
+        }
+
+        const bookings = await Booking.find({
+            flight: flight._id,
+            status: 'confirmed'
+        });
+
+        let totalRestoredSeats = 0;
+
+        for (const booking of bookings) {
+            booking.status = 'cancelled';
+            totalRestoredSeats += booking.passengers;
+            await booking.save();
+        }
+
+        flight.status = 'cancelled';
+        flight.cancellationReason = cancellationReason.trim();
+
+        flight.reservedSeats = [];
+
+        flight.availableSeats += totalRestoredSeats;
+
+        await flight.save();
+
+        res.status(200).json({
+            message: 'Flight cancelled successfully.',
+            flight,
+            cancelledBookings: bookings.length
+        });
+
+    } catch (error) {
+        console.error('Cancel flight error:', error);
+
+        res.status(500).json({
+            message: 'Failed to cancel flight.',
+            error: error.message
+        });
+    }
+};
+
+
 
 // Export Controllers
 module.exports = {
@@ -345,5 +491,6 @@ module.exports = {
     getFlights,
     getFlightById,
     updateFlight,
-    deleteFlight
+    deleteFlight,
+    cancelFlight
 };

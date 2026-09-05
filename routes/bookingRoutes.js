@@ -5,7 +5,9 @@ const {
     getMyBookings,
     getBookingById,
     cancelBooking,
-    getAllBookings
+    deleteBooking,
+    getAllBookings,
+    adminCancelBooking
 } = require('../controllers/bookingController');
 
 const authMiddleware = require('../middleware/authMiddleware');
@@ -53,6 +55,20 @@ router.patch(
     authMiddleware,
     cancelBooking
 );
+
+router.delete(
+    '/:id', 
+    authMiddleware, 
+    deleteBooking
+);
+// Cancel Booking - Admin only
+router.patch(
+    '/:id/admin-cancel',
+    authMiddleware,
+    adminMiddleware,
+    adminCancelBooking
+);
+
 
 
 module.exports = router;

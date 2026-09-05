@@ -5,7 +5,8 @@ const {
     getFlights,
     getFlightById,
     updateFlight,
-    deleteFlight
+    deleteFlight,
+    cancelFlight
 } = require('../controllers/flightController');
 
 const authMiddleware = require('../middleware/authMiddleware');
@@ -14,10 +15,23 @@ const adminMiddleware = require('../middleware/adminMiddleware');
 const router = express.Router();
 
 // Get All Flights - Public
-router.get('/', getFlights);
+router.get(
+    '/', 
+    getFlights
+);
+
+router.patch(
+    '/:id/cancel',
+    authMiddleware,
+    adminMiddleware,
+    cancelFlight
+);
 
 // Get Flight By ID - Public
-router.get('/:id', getFlightById);
+router.get(
+    '/:id',
+     getFlightById
+);
 
 // Create Flight - Admin only
 router.post(
@@ -42,5 +56,6 @@ router.delete(
     adminMiddleware,
     deleteFlight
 );
+
 
 module.exports = router;
